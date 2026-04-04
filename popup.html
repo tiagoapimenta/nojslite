@@ -1,0 +1,48 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+  cursor: default;
+  font-size: 22pt;
+  user-select: none;
+}
+div {
+  vertical-align: middle;
+}
+span {
+  border: 3pt solid silver;
+  margin: 0 2pt;
+}
+.pad {
+  height: 8pt;
+}
+.active {
+  border-color: lime;
+}
+#label {
+  font-size: 12pt;
+  font-family: monospace;
+  line-height: 1.5;
+  margin-bottom: 5pt;
+}
+@media (pointer:none), (pointer:coarse) {
+  body {
+    font-size: 48pt;
+  }
+  #label {
+    font-size: 16pt;
+  }
+}
+</style>
+<script src="popup.js"></script>
+</head>
+<body>
+<div id="label">Site: loading...</div>
+<div>📜 <span>✅</span><span>⏰</span><span>⛔</span></div>
+<div class="pad"></div>
+<div>🍪 <span>✅</span><span>⏰</span><span>⛔</span></div>
+</body>
+</html>
