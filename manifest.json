@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "NoJSLite",
+  "version": "0.1.0",
+  "description": "Control JavaScript Capability",
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "action": {
+    "default_area": "navbar",
+    "default_icon": "icon.svg",
+    "default_title": "NoJSLite",
+    "default_popup": "popup.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "64": "icon.svg"
+  },
+  "permissions": [
+    "storage",
+    "privacy",
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "browserSettings",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "nojslite-prod@pepper.codes",
+      "data_collection_permissions": {
+        "required": [ "none" ]
+      }
+    },
+    "gecko_android": {}
+  }
+}

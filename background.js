@@ -1,0 +1,199 @@
+(() => {
+  const data = {};
+  const domains = {};
+  const updateTabsDomain = (key, item) => {
+    if (key.startsWith('www.')) {
+      key = key.substring(4);
+    }
+    Object.entries(data).forEach(([id, value]) => {
+      if (value.tmpJs && value.js && value.tmpCookie && value.cookie) {
+        return;
+      }
+      let host = value.domain
+      if (host.startsWith('www.')) {
+        host = host.substring(4);
+      }
+      if (key !== host && value.sub && `.${key}` !== host.substring(host.length - key.length - 1)) {
+        return;
+      }
+      if ((!value.tmpJs || !value.js) && value.js !== item.js) {
+        value.js = item.js;
+        browser.tabs.reload(parseInt(id), { bypassCache: true });
+      }
+      if ((!value.tmpCookie || !value.cookie) && value.cookie !== item.cookie) {
+        value.cookie = item.cookie;
+      }
+    });
+  };
+  const updateDomains = item => {
+    Object.entries(item).forEach(([key, value]) => {
+      const old = domains.hasOwnProperty(key) ? domains[key] : {};
+      if (old.sub !== value.sub || old.js !== value.js || old.cookie !== value.cookie) {
+        updateTabsDomain(key, value);
+      }
+      domains[key] = value;
+    });
+    const keys = Object.keys(item);
+    Object.keys(domains).forEach(key => {
+      if (!keys.includes(key)) {
+        delete domains[key];
+        updateTabsDomain(key, { sub: false, js: false, cookie: false });
+      }
+    })
+  };
+  browser.storage.local.get().then(item => {
+    if (item.isolate !== undefined) {
+      browser.privacy.websites.firstPartyIsolate.set({ value: item.isolate });
+    }
+    if (item.resist !== undefined) {
+      browser.privacy.websites.resistFingerprinting.set({ value: item.resist });
+    }
+    if (item.position !== undefined) {
+      browser.browserSettings.newTabPosition.set({ value: item.position ? 'relatedAfterCurrent' : 'afterCurrent' });
+    }
+    if (item.domains !== undefined) {
+      updateDomains(item.domains);
+    }
+  });
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.domains !== undefined) {
+      updateDomains(changes.domains.newValue);
+    }
+  });
+  const findDomain = host => {
+    if (host.startsWith('www.')) {
+      host = host.substring(4);
+    }
+    const domain = Object.entries(domains).find(([key, value]) => {
+      if (key.startsWith('www.')) {
+        key = key.substring(4);
+      }
+      return key === host || value.sub && `.${key}` === host.substring(host.length - key.length - 1);
+    });
+    let [js, cookie] = [false, false];
+    if (domain !== undefined) {
+      js = domain[1].js
+      cookie = domain[1].cookie;
+    }
+    return { js, cookie };
+  }
+  const updateTab = (id, url, loaded) => {
+    let host = url === undefined ? '' : new URL(url).hostname;
+    if (host.trim() === '' || host === 'newtab' || host === 'blank') {
+      host = '';
+    }
+    if (!data.hasOwnProperty(id)) {
+      data[id] = {
+        domain: null,
+        js: false,
+        cookie: false,
+        tmpJs: false,
+        tmpCookie: false
+      };
+    }
+    if (data[id].domain !== host) {
+      data[id].domain = host;
+      const { js, cookie, tmpJs, tmpCookie } = data[id];
+      if (!(tmpJs && js) || !(tmpCookie && cookie)) {
+        const { js, cookie } = findDomain(host);
+        if (!tmpJs) {
+          data[id].js = js;
+        }
+        if (!tmpCookie) {
+          data[id].cookie = cookie;
+        }
+      }
+    }
+    if (!data[id].js && loaded && host !== '') {
+      browser.scripting.executeScript({
+        target: {
+          tabId: id,
+          allFrames: true
+        },
+        injectImmediately: true,
+        world: 'MAIN',
+        func: () => {
+          [...document.getElementsByTagName('noscript')].forEach(tag => {
+            if (tag.firstChild) {
+              const div = document.createElement('div');
+              div.innerHTML = tag.innerHTML;
+              tag.getAttributeNames().forEach(attr => {
+                div.setAttribute(attr, tag.getAttribute(attr));
+              });
+              tag.parentNode.replaceChild(div, tag);
+            }
+          });
+        }
+      });
+    }
+  };
+  browser.webRequest.onBeforeSendHeaders.addListener(
+    details => {
+      let headers = details.requestHeaders;
+      const id = details.tabId;
+      if (id !== undefined && (details.documentUrl !== undefined || !data.hasOwnProperty(id) || data[id].domain === '')) {
+        updateTab(id, details.documentUrl !== undefined ? details.documentUrl : details.url, false);
+      }
+      const { cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {};
+      if (cookie !== true) {
+        headers = headers.filter(header => header.name.toLowerCase() !== 'cookie');
+      }
+      return { requestHeaders: headers };
+    },
+    {
+      urls: ['<all_urls>'],
+    },
+    ['blocking', 'requestHeaders']
+  );
+  browser.webRequest.onHeadersReceived.addListener(
+    details => {
+      let headers = details.responseHeaders;
+      const id = details.tabId;
+      const { js, cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {}; // id in data
+      if (js !== true && (details.type === 'main_frame' || details.type === 'sub_frame')) {
+        headers.push({
+          name: 'Content-Security-Policy',
+          value: "script-src 'none';"
+        });
+      }
+      if (cookie !== true) {
+        headers = headers.filter(header => header.name.toLowerCase() !== 'set-cookie');
+      }
+      return { responseHeaders: headers };
+    },
+    {
+      urls: ['<all_urls>'],
+      types: ['main_frame', 'sub_frame']
+    },
+    ['blocking', 'responseHeaders']
+  );
+  browser.tabs.onCreated.addListener(tab => {
+    if (tab.id !== undefined) {
+      updateTab(tab.id, tab.url, false);
+    }
+  });
+  browser.tabs.onUpdated.addListener((id, info, tab) => {
+    updateTab(
+      id,
+      info.status === 'loading' ? undefined : (info.url !== undefined ? info.url : tab.url),
+      info.status === 'complete'
+    );
+  });
+  browser.tabs.onRemoved.addListener((id, info) => {
+    if (data.hasOwnProperty(id)) {
+      delete data[id];
+    }
+  });
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'getTabSettings') {
+      sendResponse(data);
+    } else if (message.action === 'setTabSettings') {
+      const old = data.hasOwnProperty(message.id) ? data[message.id] : {};
+      data[message.id] = message.data;
+      if (old.js !== message.data.js) {
+        browser.tabs.reload(parseInt(message.id), { bypassCache: true });
+      }
+    }
+  });
+// TODO: options page - management
+})();

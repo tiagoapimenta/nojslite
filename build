@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# on Android - Settings - About - About Firefox - tap logo several times; Settings - Advanced - Install extension from file
+# https://addons.mozilla.org/en-US/developers/addon/submit/
+
+set -e
+
+dir=$(dirname "$0")
+
+suffix=
+if [ "$1" = dev ]; then
+  suffix=-dev
+  cp -a "$dir/manifest.json" "$dir/manifest.json.bkp"
+  dev=0
+  if [ -s "$dir/.dev" ]; then
+    read -r dev < "$dir/.dev"
+    dev=$((dev + 1))
+  fi
+  sed -Ei "$(
+cat <<EOF
+s/^(  "version": "[^"]*)(",)\$/\\1.$dev\\2/
+EOF
+cat <<'EOF'
+s/^(  "name": "NoJSLite)(",)$/\1-Dev\2/
+s/^(    "default_title": "NoJSLite)(",)$/\1-Dev\2/
+s/^(      "id": "nojslite)-prod(@pepper\.codes",)$/\1-dev\2/
+/^      "id": "nojslite/a\
+      "update_url": "https://pepper\.codes/updates.json",
+EOF
+)" "$dir/manifest.json"
+  printf '%d\n' "$dev" > "$dir/.dev"
+fi
+
+if [ -s "$dir/nojslite$suffix.xpi" ]; then
+  rm -f "$dir/nojslite$suffix.xpi"
+fi
+
+zip \
+  -9r \
+  "$dir/nojslite$suffix.xpi" \
+  "$dir" \
+  -x '.git' '.git/*' '.gitignore' '*.xpi' '*.bkp' 'build' '.dev' 'LICENSE' 'README.md'
+
+if [ -n "$suffix" ]; then
+  mv "$dir/manifest.json.bkp" "$dir/manifest.json"
+fi
