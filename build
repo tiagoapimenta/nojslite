@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# on Android - Settings - About - About Firefox - tap logo several times; Settings - Advanced - Install extension from file
+# https://addons.mozilla.org/en-US/developers/addon/submit/
+# about:config xpinstall.signatures.required = false | extensions.langpacks.signatures.required = false
+# custom extension collection
+
+set -e
+
+dir=$(dirname "$0")
+
+zip \
+  -9r \
+  "$dir/nojslite.xpi" \
+  "$dir" \
+  -x '.git' '.git/*' '.gitignore' '*.xpi' 'build'
