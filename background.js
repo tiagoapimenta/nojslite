@@ -1,6 +1,9 @@
 (() => {
-  const data = {};
+  let sessionHolder = [];
+  let sessionLoaded = false;
+  let data = {};
   const domains = {};
+
   const updateTabsDomain = (key, item) => {
     if (key.startsWith('www.')) {
       key = key.substring(4);
@@ -16,12 +19,18 @@
       if (key !== host && value.sub && `.${key}` !== host.substring(host.length - key.length - 1)) {
         return;
       }
+      let changed = false;
       if ((!value.tmpJs || !value.js) && value.js !== item.js) {
+        changed = true;
         value.js = item.js;
         browser.tabs.reload(parseInt(id), { bypassCache: true });
       }
       if ((!value.tmpCookie || !value.cookie) && value.cookie !== item.cookie) {
+        changed = true;
         value.cookie = item.cookie;
+      }
+      if (changed) {
+        browser.storage.session.set({ data });
       }
     });
   };
@@ -41,25 +50,6 @@
       }
     })
   };
-  browser.storage.local.get().then(item => {
-    if (item.isolate !== undefined) {
-      browser.privacy.websites.firstPartyIsolate.set({ value: item.isolate });
-    }
-    if (item.resist !== undefined) {
-      browser.privacy.websites.resistFingerprinting.set({ value: item.resist });
-    }
-    if (item.position !== undefined) {
-      browser.browserSettings.newTabPosition.set({ value: item.position ? 'relatedAfterCurrent' : 'afterCurrent' });
-    }
-    if (item.domains !== undefined) {
-      updateDomains(item.domains);
-    }
-  });
-  browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.domains !== undefined) {
-      updateDomains(changes.domains.newValue);
-    }
-  });
   const findDomain = host => {
     if (host.startsWith('www.')) {
       host = host.substring(4);
@@ -82,7 +72,9 @@
     if (host.trim() === '' || host === 'newtab' || host === 'blank') {
       host = '';
     }
+    let changed = false;
     if (!data.hasOwnProperty(id)) {
+      changed = true;
       data[id] = {
         domain: null,
         js: false,
@@ -97,12 +89,17 @@
       if (!(tmpJs && js) || !(tmpCookie && cookie)) {
         const { js, cookie } = findDomain(host);
         if (!tmpJs) {
+          changed = true;
           data[id].js = js;
         }
         if (!tmpCookie) {
+          changed = true;
           data[id].cookie = cookie;
         }
       }
+    }
+    if (changed) {
+      browser.storage.session.set({ data });
     }
     if (!data[id].js && loaded && host !== '') {
       browser.scripting.executeScript({
@@ -127,6 +124,34 @@
       });
     }
   };
+
+  browser.storage.local.get().then(item => {
+    if (item.isolate !== undefined) {
+      browser.privacy.websites.firstPartyIsolate.set({ value: item.isolate });
+    }
+    if (item.resist !== undefined) {
+      browser.privacy.websites.resistFingerprinting.set({ value: item.resist });
+    }
+    if (item.position !== undefined) {
+      browser.browserSettings.newTabPosition.set({ value: item.position ? 'relatedAfterCurrent' : 'afterCurrent' });
+    }
+    if (item.domains !== undefined) {
+      updateDomains(item.domains);
+    }
+  });
+  browser.storage.session.get().then(item => {
+    if (item.data !== undefined) {
+      data = item.data;
+    }
+    sessionLoaded = true;
+    sessionHolder.forEach(item => item(data));
+  });
+
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.domains !== undefined) {
+      updateDomains(changes.domains.newValue);
+    }
+  });
   browser.webRequest.onBeforeSendHeaders.addListener(
     details => {
       let headers = details.requestHeaders;
@@ -182,14 +207,22 @@
   browser.tabs.onRemoved.addListener((id, info) => {
     if (data.hasOwnProperty(id)) {
       delete data[id];
+      browser.storage.session.set({ data });
     }
   });
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.action === 'getTabSettings') {
-      sendResponse(data);
+      if (sessionLoaded) {
+        sendResponse(data);
+      } else {
+        sessionHolder.push((item) => {
+          sendResponse(item);
+        });
+      }
     } else if (message.action === 'setTabSettings') {
       const old = data.hasOwnProperty(message.id) ? data[message.id] : {};
       data[message.id] = message.data;
+      browser.storage.session.set({ data });
       if (old.js !== message.data.js) {
         browser.tabs.reload(parseInt(message.id), { bypassCache: true });
       }

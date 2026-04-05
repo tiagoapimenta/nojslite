@@ -2,6 +2,8 @@
   let current = {};
   let data = {};
   let domains = {};
+  let updateIcons = () => {};
+
   const findRawDomain = host => {
     if (host.startsWith('www.')) {
       host = host.substring(4);
@@ -22,7 +24,6 @@
     }
     return { js, cookie };
   }
-  let updateIcons = () => {};
   const updateDomains = item => {
     domains = item;
     if (current.host !== undefined && current.host !== '') {
@@ -46,7 +47,13 @@
   });
   browser.runtime.sendMessage({ action: 'getTabSettings' }).then(reply => {
     data = reply;
+    if (data.hasOwnProperty(current.id) && (data[current.id].tmpJs !== current.tmpJs || data[current.id].tmpCookie !== current.tmpCookie)) {
+      current.tmpJs = data[current.id].tmpJs;
+      current.tmpCookie = data[current.id].tmpCookie;
+      updateIcons();
+    }
   });
+
   window.addEventListener('load', () => {
     const label = document.getElementById('label');
     const els = document.getElementsByTagName('span');
@@ -71,7 +78,7 @@
       els[id0].className = els[id1].className = 'active';
     };
     const selectTab = tab => {
-      const host = tab.url === undefined ? '' : new URL(tab.url).hostname;
+      let host = tab.url === undefined ? '' : new URL(tab.url).hostname;
       if (host.trim() === '' || host === 'newtab' || host === 'blank') {
         host = '';
       }

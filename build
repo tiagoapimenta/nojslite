@@ -39,7 +39,7 @@ zip \
   -9r \
   "$dir/nojslite$suffix.xpi" \
   "$dir" \
-  -x '.git' '.git/*' '.gitignore' '*.xpi' '*.bkp' 'build' '.dev' 'LICENSE' 'README.md'
+  -x '.*' '.*/*' '*.xpi' '*.bkp' 'build' 'LICENSE' 'README.md'
 
 if [ -n "$suffix" ]; then
   mv "$dir/manifest.json.bkp" "$dir/manifest.json"
