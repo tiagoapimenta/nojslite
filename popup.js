@@ -19,7 +19,7 @@
     const domain = findRawDomain(host);
     let [js, cookie] = [false, false];
     if (domain !== undefined) {
-      js = domain[1].js
+      js = domain[1].js;
       cookie = domain[1].cookie;
     }
     return { js, cookie };
@@ -35,6 +35,7 @@
       }
     }
   };
+
   browser.storage.local.get().then(item => {
     if (item.domains !== undefined) {
       updateDomains(item.domains);
@@ -57,26 +58,7 @@
   window.addEventListener('load', () => {
     const label = document.getElementById('label');
     const els = document.getElementsByTagName('span');
-    updateIcons = () => {
-      for (const el of els) {
-        el.className = '';
-      }
-      if (current.host === '') {
-        return;
-      }
-      let [id0, id1] = [2, 5];
-      if (current.tmpJs) {
-        id0 = 1;
-      } else if (current.js) {
-        id0 = 0;
-      }
-      if (current.tmpCookie) {
-        id1 = 4;
-      } else if (current.cookie) {
-        id1 = 3;
-      }
-      els[id0].className = els[id1].className = 'active';
-    };
+
     const selectTab = tab => {
       let host = tab.url === undefined ? '' : new URL(tab.url).hostname;
       if (host.trim() === '' || host === 'newtab' || host === 'blank') {
@@ -102,19 +84,6 @@
       label.innerText = `Site: ${host}`;
       updateIcons();
     };
-    browser.tabs.onActivated.addListener(activeInfo => {
-      browser.tabs.query({ currentWindow: true, active: true }, tabs => {
-        selectTab(tabs.pop());
-      });
-    });
-    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-      if (tab.active && changeInfo.status === 'complete') {
-        selectTab(tab);
-      }
-    });
-    browser.tabs.query({ currentWindow: true, active: true }, tabs => {
-      selectTab(tabs.pop());
-    });
     const updateDomain = () => {
       const host = current.host;
       const domain = findRawDomain(host);
@@ -206,7 +175,43 @@
           }
         }
       }
-    }
+    };
+
+    updateIcons = () => {
+      for (const el of els) {
+        el.className = '';
+      }
+      if (current.host === '') {
+        return;
+      }
+      let [id0, id1] = [2, 5];
+      if (current.tmpJs) {
+        id0 = 1;
+      } else if (current.js) {
+        id0 = 0;
+      }
+      if (current.tmpCookie) {
+        id1 = 4;
+      } else if (current.cookie) {
+        id1 = 3;
+      }
+      els[id0].className = els[id1].className = 'active';
+    };
+
+    browser.tabs.onActivated.addListener(activeInfo => {
+      browser.tabs.query({ currentWindow: true, active: true }, tabs => {
+        selectTab(tabs.pop());
+      });
+    });
+    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (tab.active && changeInfo.status === 'complete') {
+        selectTab(tab);
+      }
+    });
+    browser.tabs.query({ currentWindow: true, active: true }).then(tabs => {
+      selectTab(tabs.pop());
+    });
+
     for (let i = els.length; i--;) {
       const action = actions[i];
       els[i].addEventListener('click', () => {

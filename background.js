@@ -1,6 +1,9 @@
 (() => {
-  let sessionHolder = [];
+// TODO: fix, page some times periodically reloads when js is false and on incognito
+  const sessionHolder = [];
+  const requestHolder = [];
   let sessionLoaded = false;
+  let domainsLoaded = false;
   let data = {};
   const domains = {};
 
@@ -9,7 +12,7 @@
       key = key.substring(4);
     }
     Object.entries(data).forEach(([id, value]) => {
-      if (value.tmpJs && value.js && value.tmpCookie && value.cookie) {
+      if (host === '' || value.tmpJs && value.js && value.tmpCookie && value.cookie) {
         return;
       }
       let host = value.domain
@@ -36,11 +39,15 @@
   };
   const updateDomains = item => {
     Object.entries(item).forEach(([key, value]) => {
-      const old = domains.hasOwnProperty(key) ? domains[key] : {};
+      const old = domains.hasOwnProperty(key) ? domains[key] : { sub: false, js: false, cookie: false };
       if (old.sub !== value.sub || old.js !== value.js || old.cookie !== value.cookie) {
         updateTabsDomain(key, value);
       }
-      domains[key] = value;
+      if (value.sub || value.js || value.cookie) {
+        domains[key] = value;
+      } else {
+        delete domains[key];
+      }
     });
     const keys = Object.keys(item);
     Object.keys(domains).forEach(key => {
@@ -62,7 +69,7 @@
     });
     let [js, cookie] = [false, false];
     if (domain !== undefined) {
-      js = domain[1].js
+      js = domain[1].js;
       cookie = domain[1].cookie;
     }
     return { js, cookie };
@@ -87,14 +94,14 @@
       data[id].domain = host;
       const { js, cookie, tmpJs, tmpCookie } = data[id];
       if (!(tmpJs && js) || !(tmpCookie && cookie)) {
-        const { js, cookie } = findDomain(host);
-        if (!tmpJs) {
+        const domain = findDomain(host);
+        if (!tmpJs && data[id].js !== domain.js) {
           changed = true;
-          data[id].js = js;
+          data[id].js = domain.js;
         }
-        if (!tmpCookie) {
+        if (!tmpCookie && data[id].cookie !== domain.cookie) {
           changed = true;
-          data[id].cookie = cookie;
+          data[id].cookie = domain.cookie;
         }
       }
     }
@@ -124,8 +131,7 @@
       });
     }
   };
-
-  browser.storage.local.get().then(item => {
+  const updateSettings = item => {
     if (item.isolate !== undefined) {
       browser.privacy.websites.firstPartyIsolate.set({ value: item.isolate });
     }
@@ -138,6 +144,30 @@
     if (item.domains !== undefined) {
       updateDomains(item.domains);
     }
+  };
+  const completeDomainLoad = () => {
+    requestHolder.forEach(item => item());
+    requestHolder.splice(0, requestHolder.length);
+  };
+  const requestListener = details => {
+    let headers = details.requestHeaders;
+    const id = details.tabId;
+    if (id !== undefined && (details.documentUrl !== undefined || !data.hasOwnProperty(id) || data[id].domain === '')) {
+      updateTab(id, details.documentUrl !== undefined ? details.documentUrl : details.url, false);
+    }
+    const { cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {};
+    if (cookie !== true) {
+      headers = headers.filter(header => header.name.toLowerCase() !== 'cookie');
+    }
+    return { requestHeaders: headers };
+  };
+
+  browser.storage.local.get().then(item => {
+    updateSettings(item);
+    domainsLoaded = true;
+    if (sessionLoaded) {
+      completeDomainLoad();
+    }
   });
   browser.storage.session.get().then(item => {
     if (item.data !== undefined) {
@@ -145,25 +175,32 @@
     }
     sessionLoaded = true;
     sessionHolder.forEach(item => item(data));
+    sessionHolder.splice(0, sessionHolder.length);
+    if (domainsLoaded) {
+      completeDomainLoad();
+    }
   });
 
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.domains !== undefined) {
-      updateDomains(changes.domains.newValue);
+      updateSettings({
+        isolate: changes.isolate !== undefined ? changes.isolate.newValue : undefined,
+        resist: changes.resist !== undefined ? changes.resist.newValue : undefined,
+        position: changes.position !== undefined ? changes.position.newValue : undefined,
+        domains: changes.domains !== undefined ? changes.domains.newValue : undefined,
+      })
     }
   });
   browser.webRequest.onBeforeSendHeaders.addListener(
     details => {
-      let headers = details.requestHeaders;
-      const id = details.tabId;
-      if (id !== undefined && (details.documentUrl !== undefined || !data.hasOwnProperty(id) || data[id].domain === '')) {
-        updateTab(id, details.documentUrl !== undefined ? details.documentUrl : details.url, false);
+      if (sessionLoaded && domainsLoaded) {
+        return requestListener(details);
       }
-      const { cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {};
-      if (cookie !== true) {
-        headers = headers.filter(header => header.name.toLowerCase() !== 'cookie');
-      }
-      return { requestHeaders: headers };
+      return new Promise(resolve => {
+        requestHolder.push(() => {
+          resolve(requestListener(details));
+        });
+      });
     },
     {
       urls: ['<all_urls>'],
@@ -220,7 +257,7 @@
         });
       }
     } else if (message.action === 'setTabSettings') {
-      const old = data.hasOwnProperty(message.id) ? data[message.id] : {};
+      const old = data.hasOwnProperty(message.id) ? data[message.id] : { js: false, cookie: false };
       data[message.id] = message.data;
       browser.storage.session.set({ data });
       if (old.js !== message.data.js) {
