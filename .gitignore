@@ -1,4 +1,3 @@
-/nojslite.xpi
-/nojslite-dev.xpi
+/*.xpi
 /.dev
-/manifest.json.bkp
+/*.bkp

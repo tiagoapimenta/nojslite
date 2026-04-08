@@ -1,5 +1,4 @@
 (() => {
-// TODO: fix, page some times periodically reloads when js is false and on incognito
   const sessionHolder = [];
   const requestHolder = [];
   let sessionLoaded = false;
@@ -75,9 +74,15 @@
     return { js, cookie };
   }
   const updateTab = (id, url, loaded) => {
-    let host = url === undefined ? '' : new URL(url).hostname;
-    if (host.trim() === '' || host === 'newtab' || host === 'blank') {
-      host = '';
+    let host = '';
+    if (url !== undefined) {
+      const addr = new URL(url);
+      if (addr.protocol !== 'moz-extension:') {
+        host = addr.hostname;
+        if (host.trim() === '' || host === 'newtab' || host === 'blank') {
+          host = '';
+        }
+      }
     }
     let changed = false;
     if (!data.hasOwnProperty(id)) {
@@ -120,10 +125,11 @@
           [...document.getElementsByTagName('noscript')].forEach(tag => {
             if (tag.firstChild) {
               const div = document.createElement('div');
-              div.innerHTML = tag.innerHTML;
               tag.getAttributeNames().forEach(attr => {
                 div.setAttribute(attr, tag.getAttribute(attr));
               });
+              div.innerHTML = tag.innerHTML;
+              // new DOMParser().parseFromString(tag.textContent, 'text/html').body.childNodes.forEach(node => div.appendChild(document.importNode(node, true))); // this does not trigger meta tag changes, see duckduckgo.com -> html.duckduckgo.com
               tag.parentNode.replaceChild(div, tag);
             }
           });
