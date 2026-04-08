@@ -11,7 +11,7 @@
       key = key.substring(4);
     }
     Object.entries(data).forEach(([id, value]) => {
-      if (host === '' || value.tmpJs && value.js && value.tmpCookie && value.cookie) {
+      if (value.domain === '' || value.tmpJs && value.js && value.tmpCookie && value.cookie) {
         return;
       }
       let host = value.domain
