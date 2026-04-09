@@ -12,7 +12,7 @@
       if (key.startsWith('www.')) {
         key = key.substring(4);
       }
-      return key === host || value.sub && `.${key}` === host.substring(host.length - key.length - 1);
+      return key === host || value.sub && host.endsWith(`.${key}`);
     });
   };
   const findDomain = host => {
@@ -47,6 +47,9 @@
     }
   });
   browser.runtime.sendMessage({ action: 'getTabSettings' }).then(reply => {
+    if (reply === undefined) {
+      return;
+    }
     data = reply;
     if (data.hasOwnProperty(current.id) && (data[current.id].tmpJs !== current.tmpJs || data[current.id].tmpCookie !== current.tmpCookie)) {
       current.tmpJs = data[current.id].tmpJs;

@@ -11,21 +11,21 @@
       key = key.substring(4);
     }
     Object.entries(data).forEach(([id, value]) => {
-      if (value.domain === '' || value.tmpJs && value.js && value.tmpCookie && value.cookie) {
+      if (value.domain === '' || (value.tmpJs && value.js) && (value.tmpCookie && value.cookie)) {
         return;
       }
-      let host = value.domain
+      let host = value.domain;
       if (host.startsWith('www.')) {
         host = host.substring(4);
       }
-      if (key !== host && value.sub && `.${key}` !== host.substring(host.length - key.length - 1)) {
+      if (key !== host && !(value.sub && host.endsWith(`.${key}`))) {
         return;
       }
       let changed = false;
       if ((!value.tmpJs || !value.js) && value.js !== item.js) {
         changed = true;
         value.js = item.js;
-        browser.tabs.reload(parseInt(id), { bypassCache: true });
+        browser.tabs.reload(parseInt(id, 10), { bypassCache: true });
       }
       if ((!value.tmpCookie || !value.cookie) && value.cookie !== item.cookie) {
         changed = true;
@@ -64,7 +64,7 @@
       if (key.startsWith('www.')) {
         key = key.substring(4);
       }
-      return key === host || value.sub && `.${key}` === host.substring(host.length - key.length - 1);
+      return key === host || value.sub && host.endsWith(`.${key}`);
     });
     let [js, cookie] = [false, false];
     if (domain !== undefined) {
@@ -153,7 +153,7 @@
   };
   const completeDomainLoad = () => {
     requestHolder.forEach(item => item());
-    requestHolder.splice(0, requestHolder.length);
+    requestHolder.length = 0;
   };
   const requestListener = details => {
     let headers = details.requestHeaders;
@@ -181,20 +181,20 @@
     }
     sessionLoaded = true;
     sessionHolder.forEach(item => item(data));
-    sessionHolder.splice(0, sessionHolder.length);
+    sessionHolder.length = 0;
     if (domainsLoaded) {
       completeDomainLoad();
     }
   });
 
   browser.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.domains !== undefined) {
+    if (area === 'local') {
       updateSettings({
         isolate: changes.isolate !== undefined ? changes.isolate.newValue : undefined,
         resist: changes.resist !== undefined ? changes.resist.newValue : undefined,
         position: changes.position !== undefined ? changes.position.newValue : undefined,
         domains: changes.domains !== undefined ? changes.domains.newValue : undefined,
-      })
+      });
     }
   });
   browser.webRequest.onBeforeSendHeaders.addListener(
@@ -217,8 +217,8 @@
     details => {
       let headers = details.responseHeaders;
       const id = details.tabId;
-      const { js, cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {}; // id in data
-      if (js !== true && (details.type === 'main_frame' || details.type === 'sub_frame')) {
+      const { js, cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {};
+      if (js !== true) {
         headers.push({
           name: 'Content-Security-Policy',
           value: "script-src 'none';"
@@ -258,16 +258,17 @@
       if (sessionLoaded) {
         sendResponse(data);
       } else {
-        sessionHolder.push((item) => {
+        sessionHolder.push(item => {
           sendResponse(item);
         });
+        return true;
       }
     } else if (message.action === 'setTabSettings') {
       const old = data.hasOwnProperty(message.id) ? data[message.id] : { js: false, cookie: false };
       data[message.id] = message.data;
       browser.storage.session.set({ data });
       if (old.js !== message.data.js) {
-        browser.tabs.reload(parseInt(message.id), { bypassCache: true });
+        browser.tabs.reload(parseInt(message.id, 10), { bypassCache: true });
       }
     }
   });
