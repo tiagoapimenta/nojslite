@@ -17,47 +17,39 @@ table, thead, tbody, tr, th, td {
 }
 </style>
 </head>
+<script src="options.js"></script>
 <body>
 <h1><img src="icon.svg"> NoJSLite Settings</h1>
 <details>
   <summary>Expert Settings</summary>
   Cookie First Party Isolate:
   <span id="isolateLabel">unknown</span>
-  <label><input type="radio" name="isolate" id="isolateDefault"> Default</label>
-  <label><input type="radio" name="isolate" id="isolateTrue"> Force Enabled</label>
-  <label><input type="radio" name="isolate" id="isolateFalse"> Force Disabled</label><br>
+  <label><input type="radio" name="isolate" value="default"> Default</label>
+  <label><input type="radio" name="isolate" value="true"> Force Enabled</label>
+  <label><input type="radio" name="isolate" value="false"> Force Disabled</label><br>
   Resist Fingerprint:
   <span id="resistLabel">unknown</span>
-  <label><input type="radio" name="resist" id="resistDefault"> Default</label>
-  <label><input type="radio" name="resist" id="resistTrue"> Force Enabled</label>
-  <label><input type="radio" name="resist" id="resistFalse"> Force Disabled</label><br>
+  <label><input type="radio" name="resist" value="default"> Default</label>
+  <label><input type="radio" name="resist" value="true"> Force Enabled</label>
+  <label><input type="radio" name="resist" value="false"> Force Disabled</label><br>
   New Tab Position:
   <span id="positionLabel">unknown</span>
-  <label><input type="radio" name="position" id="positionDefault"> Default</label>
-  <label><input type="radio" name="position" id="positionTrue"> Force After Current</label>
-  <label><input type="radio" name="position" id="positionFalse"> Force After Related</label>
+  <label><input type="radio" name="position" value="default"> Default</label>
+  <label><input type="radio" name="position" value="true"> Force After Current</label>
+  <label><input type="radio" name="position" value="false"> Force After Related</label>
 </details>
 <table>
 <thead>
 <tr>
   <th>Domain</th>
   <th>JS</th>
-  <th>CSS</th>
-  <th>subdomain</th>
-  <th>Action</th>
+  <th>Cookie</th>
+  <th>Subdomain</th>
+  <th>Remove</th>
 </tr>
-<thead>
+</thead>
 <tbody id="data">
 </tbody>
-<!--
-❌ remove
-✏️ edit
-💾 save
-↩️ cancel
-
-
-js css sub keep bottom
--->
 </table>
 <input type="button" id="add" value="➕">
 </body>

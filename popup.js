@@ -167,7 +167,7 @@
       },
       5: () => {
         const { cookie, tmpCookie } = current;
-        if (cookie || current.tmpCookie) {
+        if (cookie || tmpCookie) {
           current.cookie = false;
           current.tmpCookie = false;
           if (cookie) {

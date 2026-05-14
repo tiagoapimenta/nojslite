@@ -54,7 +54,7 @@
         delete domains[key];
         updateTabsDomain(key, { sub: false, js: false, cookie: false });
       }
-    })
+    });
   };
   const findDomain = host => {
     if (host.startsWith('www.')) {
