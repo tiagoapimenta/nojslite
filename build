@@ -5,6 +5,11 @@
 
 set -e
 
+if ! command -v zip > /dev/null; then
+  printf 'Command zip not found!\n' >&2
+  exit 1
+fi
+
 dir=$(dirname "$0")
 
 suffix=
@@ -29,6 +34,8 @@ s/^(      "id": "nojslite)-prod(@pepper\.codes",)$/\1-dev\2/
 EOF
 )" "$dir/manifest.json"
   printf '%d\n' "$dev" > "$dir/.dev"
+else
+  rm -f "$dir/.dev"
 fi
 
 if [ -s "$dir/nojslite$suffix.xpi" ]; then

@@ -158,7 +158,7 @@
   const requestListener = details => {
     let headers = details.requestHeaders;
     const id = details.tabId;
-    if (id !== undefined && (details.documentUrl !== undefined || !data.hasOwnProperty(id) || data[id].domain === '')) {
+    if (id !== undefined && (details.documentUrl !== undefined || !data.hasOwnProperty(id) || data[id].domain === '' || details.type === 'main_frame')) {
       updateTab(id, details.documentUrl !== undefined ? details.documentUrl : details.url, false);
     }
     const { cookie } = (id !== undefined && data.hasOwnProperty(id)) ? data[id] : {};
